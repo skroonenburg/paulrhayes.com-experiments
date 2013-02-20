@@ -12,17 +12,53 @@
 
     <link rel="stylesheet" href="css/experiment.css" />    
     <!--[if lt IE 9]><script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script><![endif]-->
-
+    <script src="../jquery.min.js"></script>
+      <script src="leap.js"></script>
     <script>
         var ws;
-
+		var minHandSize = 50;
+		var maxHandSize = 75;
+		
         // Support both the WebSocket and MozWebSocket objects
         if ((typeof (WebSocket) == 'undefined') &&
             (typeof (MozWebSocket) != 'undefined')) {
             WebSocket = MozWebSocket;
         }
 
-        // Create the socket with event handlers
+     //map function to be used to map values from leap into proper degrees (0-360)
+        function map(value, inputMin, inputMax, outputMin, outputMax){
+        outVal = ((value - inputMin) / (inputMax - inputMin) * (outputMax - outputMin) + outputMin);  
+        if(outVal >  outputMax){
+          outVal = outputMax;
+        }
+        if(outVal <  outputMin){
+          outVal = outputMin;
+        } 
+        return outVal;
+      }
+      
+var history = [];
+var maxHistoryLength = 25;
+
+var addToHistory = function(value) {
+
+	history.push(value);
+	if (history.length > maxHistoryLength)
+	{
+		history = history.slice(1);
+	}
+}
+
+var getMovingAverage = function(value) { 
+	var sum = 0;
+	for (var i = 0; i < history.length; i++)
+	{
+		sum += history[i];
+	}
+
+	return sum / history.length;
+}
+       // Create the socket with event handlers
         function init() {
             //Create and open the socket
             ws = new WebSocket("ws://localhost:6437/");
@@ -35,9 +71,16 @@
 
             // On message received
             ws.onmessage = function (event) {
+
                 var obj = JSON.parse(event.data);
-                if (obj.hands.length > 0) {
-                    $('#main').css('zoom', (obj.hands[0].sphereRadius / 100)*2);
+                if (obj && obj.hands && obj.hands.length === 1) {
+					var radius = obj.hands[0].sphereRadius;
+                	addToHistory(radius);
+                	var normalized = ((getMovingAverage()-minHandSize) / (maxHandSize-minHandSize));
+
+                	$('#details').html('max=' + maxHandSize + '<br>min=' + minHandSize + '<br />radius=' + radius + '<br>' + 'normalized=' + normalized);
+
+                    $('#main').css('zoom', normalized);
                 }
                 else {
                     
@@ -49,7 +92,7 @@
             // On socket close
             ws.onclose = function (event) {
                 ws = null;
-                document.getElementById("main").style.visibility = "hidden";
+                //document.getElementById("main").style.visibility = "hidden";
                 document.getElementById("connection").innerHTML = "WebSocket connection closed";
             }
 
@@ -58,42 +101,93 @@
                 alert("Received error");
             };
         }
+        $(function() {
+        
+        	$('#setmin').click(function() {
+
+        		minHandSize =  getMovingAverage();
+        	});
+       	 	$('#setmax').click(function() {
+       		 	maxHandSize =  getMovingAverage();
+       		 });
+        	init();
+        });
+        
+            var firstValidFrame = null;
+      		var cameraRadius = 290;
+      		var rotateY = 90, rotateX = 90;
+        
+        //request animation frame and connect to leap socket
+      Leap.loop(function(frame) {
+        if (frame.valid) {
+          //rotate cloud and earth independently
+
+          if (!firstValidFrame) firstValidFrame = frame;
+          var t = firstValidFrame.translation(frame);
+
+          //adjust spherical coordinates based on finger position
+          rotateX = map(t[0], 300, -300, 0, 360);
+          rotateY = -map(t[1], 200, -200, 0, 180);
+$('.cube').css('transform', 'rotateX(' + rotateY + 'deg) rotateY(' + -rotateX + 'deg)');
+$('#rotate').html('rotateX=' + rotateX + '<br/>rotateY=' + rotateY);
+
+        }
+
+      });
 </script>
+<style>
+#stats
+{
+z-index: 1;
+position: fixed;
+right: 0;
+width:200px;
+top:0;
+bottom:0;
+background-color:#ddd;
+}
+#actions
+{
+position:absolute;
+height: 200px;
+bottom:0;
+right:0;
+left:0;
+}
+</style>
+
 </head>
-<body class="experiment" onload="init();">
+<body class="experiment">
     <div id="connection">WebSocket not connected</div>
+    <div id="stats">
+		<div id="details"></div>
+				<div id="rotate"></div>
+		<div id="actions"><button id="setmin">Hand Closed</button><button id="setmax">Hand Open</button></div>
+    </div>
     <div class="wrapper">
 
 <article class="viewport" id="main">
     <section class="cube">
-        <div></div>
         <div>
-            <h2>3D cube</h2>
-            <time>28th September 2010</time>
-            <p>By Paul Hayes</p>
-            <p>3D cube built using css, webkit-perspective and webkit-transform. Rotation via webkit-transition.</p>
-            <p>Use arrow keys to navigate, or click and hold mouse. On touch screens, use one finger to rotate. Press ESC to reset.</p>
-            <p><a href="http://www.paulrhayes.com/2010-09/3d-css-cube-ii-touch-gestures-click-and-drag/" target="_top">Read more &raquo;</a></p>
+        	<h2>1</h2>
         </div>
         <div>
-            <!-- video -->
+			<h2>2</h2>
         </div>
         <div>
-            <h2><a href="http://www.paulrhayes.com/2009-07/animated-css3-cube-interface-using-3d-transforms/" target="_top">Learn how to make a cube</a></h2>
-            <time>17th July 2009</time>
-            <p>By Paul Hayes</p>
-            <p>&#8220;A 3D cube can be created solely in CSS, with all six faces.&#8221;</p>
-            <p>Article: <a href="http://www.paulrhayes.com/2009-07/animated-css3-cube-interface-using-3d-transforms/" target="_top">Cube explanation</a></p>
+			<h2>3</h2>
         </div>
         <div>
-            <p>I design and build websites in Brighton</p>
+			<h2>4</h2>
         </div>
         <div>
-            <small>Nothing down here.</small>
+			<h2>5</h2>
+        </div>
+        <div>
+			<h2>6</h2>
         </div>
     </section>
 </article>
     </div>
-    <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.9.0/jquery.min.js"></script>
-    <script src="js/experiment.js"></script>    </body>
+   </body>
 </html>
